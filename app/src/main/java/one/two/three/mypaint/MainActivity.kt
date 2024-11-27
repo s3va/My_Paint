@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Picture
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -56,7 +57,10 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.draw
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -144,6 +148,7 @@ class MainActivity : ComponentActivity() {
 }
 
 var bitmap: Bitmap? = null
+var picture = Picture()
 
 @Composable
 fun PaintScr(
@@ -160,7 +165,20 @@ fun PaintScr(
     LaunchedEffect(picSave) {
         Log.i("laucheff", "PaintScr: picSave = $picSave")
         if (picSave) {
-            bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+
+            val btm = Bitmap.createBitmap(
+                picture.width,
+                picture.height,
+                Bitmap.Config.ARGB_8888
+            )
+
+            val canvas = android.graphics.Canvas(btm)
+            canvas.drawColor(android.graphics.Color.WHITE)
+            canvas.drawPicture(picture)
+            bitmap=btm
+
+//            bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+
             Log.i("picSave", "PaintScr: bitmap h ${bitmap?.height} w ${bitmap?.width}")
             val resolver: ContentResolver = ctx.contentResolver
             val contentValues = ContentValues()
@@ -180,6 +198,9 @@ fun PaintScr(
                         bitmap?.compress(Bitmap.CompressFormat.JPEG, 100, fos)
                     }
                 }
+
+
+
             picSaved()
         }
         //fos!!.flush()
@@ -190,27 +211,59 @@ fun PaintScr(
         modifier = modifier
             .fillMaxSize()
             .background(Color.LightGray)
+
             .drawWithCache {
+                // Example that shows how to redirect rendering to an Android Picture and then
+                // draw the picture into the original destination
+                val width = this.size.width.toInt()
+                val height = this.size.height.toInt()
                 onDrawWithContent {
-                    //.drawWithContent {
-                    Log.i(
-                        "onDrawWithContext",
-                        ".drawWithContent: ${graphicsLayer.size} ${this.size} !!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                    )
-
-                    graphicsLayer.record {
-                        Log.i(
-                            "onDrawWithContext",
-                            "graphicsLayer: ${graphicsLayer.size} ${this.size} !!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    val pictureCanvas =
+                        androidx.compose.ui.graphics.Canvas(
+                            picture.beginRecording(
+                                width,
+                                height
+                            )
                         )
-
-                        //            this@drawWithContent.drawContent()
-
+                    draw(
+                        this,
+                        this.layoutDirection,
+                        pictureCanvas,
+                        this.size
+                    ) {
                         this@onDrawWithContent.drawContent()
                     }
-                    drawLayer(graphicsLayer)
+                    picture.endRecording()
+
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawPicture(
+                            picture
+                        )
+                    }
                 }
             }
+
+//            .drawWithCache {
+//                onDrawWithContent {
+//                    //.drawWithContent {
+//                    Log.i(
+//                        "onDrawWithContext",
+//                        ".drawWithContent: ${graphicsLayer.size} ${this.size} !!!!!!!!!!!!!!!!!!!!!!!!!!!"
+//                    )
+//
+//                    graphicsLayer.record {
+//                        Log.i(
+//                            "onDrawWithContext",
+//                            "graphicsLayer: ${graphicsLayer.size} ${this.size} !!!!!!!!!!!!!!!!!!!!!!!!!!!"
+//                        )
+//
+//                        //            this@drawWithContent.drawContent()
+//
+//                        this@onDrawWithContent.drawContent()
+//                    }
+//                    drawLayer(graphicsLayer)
+//                }
+//            }
             .pointerInput(true) {
                 detectDragGestures(
                     onDragStart = { offset: Offset ->
