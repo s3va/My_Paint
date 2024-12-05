@@ -12,8 +12,8 @@ android {
         applicationId = "one.two.three.mypaint"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "v0.0.1-alpha"
+        versionCode = 3
+        versionName = "v0.0.3-alpha"
         extensions.getByType(BasePluginExtension::class.java).archivesName.set("AndPaint-$versionName")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -49,9 +49,9 @@ dependencies {
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
+//    implementation(libs.androidx.appcompat)
+//    implementation(libs.material)
+//    implementation(libs.androidx.activity)
 //    implementation(libs.androidx.constraintlayout)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.core.ktx)

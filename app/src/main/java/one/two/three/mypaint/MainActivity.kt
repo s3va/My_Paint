@@ -2,14 +2,16 @@ package one.two.three.mypaint
 
 import android.content.ContentResolver
 import android.content.ContentValues
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Picture
+import android.graphics.Point
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.util.TypedValue
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,6 +22,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +35,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
-import androidx.compose.material.icons.filled.ArrowRight
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -45,32 +47,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.draw
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toIntSize
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import one.two.three.mypaint.ui.theme.MyPaintTheme
+import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -85,6 +86,8 @@ class MainActivity : ComponentActivity() {
                 val vm: MainViewModel = viewModel()
                 val picSaveFlow by vm.savePic.collectAsStateWithLifecycle()
                 val ctx = LocalContext.current
+                var showDialog by remember { mutableStateOf(false) }
+
 
                 val permi =
                     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { x ->
@@ -109,6 +112,9 @@ class MainActivity : ComponentActivity() {
                 val pathsClrs = remember {
                     mutableStateListOf<Pair<Path, Color>>()
                 }
+                val pointsList = remember {
+                    mutableStateListOf<Pair<Offset, Color>>()
+                }
 
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -127,18 +133,30 @@ class MainActivity : ComponentActivity() {
                         PaintScr(
                             modifier = Modifier
                                 .weight(1f),
-                            color = selectedColor,
+                            lColor = selectedColor,
                             pathsList = pathsClrs,
+                            pointsList = pointsList,
                             picSave = picSaveFlow,
                             picSaved = vm::picSaved
                         )
-                        ColorBar(modifier = Modifier,
+                        ColorBar(
+                            modifier = Modifier,
                             onClk = { c: Color ->
                                 selectedColor.value = c
                             },
                             savePicture = {
                                 vm.savePic()
-                            }
+                            },
+                            openDialog = { showDialog = true },
+                        )
+                    }
+                }
+
+                if (showDialog) {
+                    bitmap?.let {
+                        MyDialog(
+                            onDismiss = { showDialog = false },
+                            mBitmap = it,
                         )
                     }
                 }
@@ -153,12 +171,13 @@ var picture = Picture()
 @Composable
 fun PaintScr(
     modifier: Modifier = Modifier,
-    color: MutableState<Color>,
+    lColor: MutableState<Color>,
     pathsList: SnapshotStateList<Pair<Path, Color>>,
+    pointsList: SnapshotStateList<Pair<Offset, Color>>,
     picSave: Boolean,
     picSaved: () -> Unit,
 ) {
-    val p = remember { mutableStateOf(Path()) }
+    var mPath by remember { mutableStateOf(Path()) }
     val graphicsLayer = rememberGraphicsLayer()
     val ctx = LocalContext.current
 
@@ -173,33 +192,81 @@ fun PaintScr(
             )
 
             val canvas = android.graphics.Canvas(btm)
-            canvas.drawColor(android.graphics.Color.WHITE)
+            //canvas.drawColor(android.graphics.Color.WHITE)
+
+//            pathsList.forEach {
+//                val lPaint = android.graphics.Paint()
+//                lPaint.color = it.second.toArgb()
+//                lPaint.strokeWidth = TypedValue.applyDimension(
+//                    TypedValue.COMPLEX_UNIT_DIP,
+//                    5f,
+//                    ctx.resources.displayMetrics
+//                )
+//                lPaint.style=android.graphics.Paint.Style.STROKE
+//
+//                canvas.drawPath(
+//                    it.first.asAndroidPath(),
+//                    lPaint,
+//                    //style = Stroke(5.dp.toPx())
+//                )
+//            }
+//            canvas.drawPath(
+//                mPath.asAndroidPath(),
+//                android.graphics.Paint().apply {
+//                    color = lColor.value.toArgb()
+//                    strokeWidth = TypedValue.applyDimension(
+//                        TypedValue.COMPLEX_UNIT_DIP,
+//                        5f,
+//                        ctx.resources.displayMetrics
+//                    )
+//                    style=android.graphics.Paint.Style.STROKE
+//                },
+//            )
+
             canvas.drawPicture(picture)
-            bitmap=btm
+            bitmap = btm
 
 //            bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
 
-            Log.i("picSave", "PaintScr: bitmap h ${bitmap?.height} w ${bitmap?.width}")
-            val resolver: ContentResolver = ctx.contentResolver
-            val contentValues = ContentValues()
-            contentValues.put(
-                MediaStore.MediaColumns.DISPLAY_NAME, "Paint-" +
-                        LocalDateTime.now().format(
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
-                        )
-            )
-            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P)
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+
+                val resolver: ContentResolver = ctx.contentResolver
+                val contentValues = ContentValues()
+                contentValues.put(
+                    MediaStore.MediaColumns.DISPLAY_NAME, "Paint-" +
+                            LocalDateTime.now().format(
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
+                            )
+                )
+                contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/paint")
-            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-                ?.let { iUri ->
-                    Log.i("insert", "PaintScr: $iUri")
-                    resolver.openOutputStream(iUri)?.use { fos ->
-                        bitmap?.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                    ?.let { iUri ->
+                        resolver.openOutputStream(iUri)?.use { fos ->
+                            bitmap?.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                        }
+                    }
+            } else {
+                val rootDir = Environment.getExternalStorageDirectory()
+                val picDir = File(rootDir, Environment.DIRECTORY_PICTURES)
+                val f = File(picDir, "MyPainter")
+                //val f = File(ctx.getExternalFilesDir(Environment.DIRECTORY_PICTURES),"MyPaint")
+                if (!f.exists()) {
+                    if (!f.mkdirs()) {
+                        return@LaunchedEffect
                     }
                 }
+                val picFile = File(
+                    f,
+                    "Paint-" + LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss.SSS")) + ".png"
+                )
+                Log.i(TAG, "PaintScr: $picFile")
+                picFile.outputStream().use { fos ->
+                    bitmap?.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                }
 
-
+            }
 
             picSaved()
         }
@@ -211,7 +278,6 @@ fun PaintScr(
         modifier = modifier
             .fillMaxSize()
             .background(Color.LightGray)
-
             .drawWithCache {
                 // Example that shows how to redirect rendering to an Android Picture and then
                 // draw the picture into the original destination
@@ -267,28 +333,32 @@ fun PaintScr(
             .pointerInput(true) {
                 detectDragGestures(
                     onDragStart = { offset: Offset ->
-                        p.value = Path()
-                        p.value.moveTo(offset.x, offset.y)
+                        mPath = Path()
+                        mPath.moveTo(offset.x, offset.y)
 
                     },
                     onDragEnd = {
-                        pathsList.add(Pair(p.value, color.value))
-                        p.value = Path()
+                        pathsList.add(Pair(mPath, lColor.value))
+                        mPath = Path()
                     },
                 ) { change, dragAmount ->
 //                    p.value.moveTo(
 //                        change.position.x - dragAmount.x,
 //                        change.position.y - dragAmount.y
 //                    )
-                    p.value = Path().apply {
-                        addPath(p.value)
+                    mPath = Path().apply {
+                        addPath(mPath)
                         lineTo(
                             change.position.x,
                             change.position.y
                         )
                     }
                 }
-
+            }
+            .pointerInput(true){
+                detectTapGestures { offset: Offset ->
+                    pointsList.add(Pair(offset,lColor.value))
+                }
             }
     ) {
         pathsList.forEach {
@@ -298,17 +368,27 @@ fun PaintScr(
                 style = Stroke(5.dp.toPx())
             )
         }
+        pointsList.forEach {
+            drawPoints(listOf(it.first), PointMode.Points, it.second, 5.dp.toPx())
+        }
         drawPath(
-            p.value,
-            color.value,
+            mPath,
+            lColor.value,
             style = Stroke(5.dp.toPx()),
         )
 
     }
 }
 
+private const val TAG = "MainActivity"
+
 @Composable
-fun ColorBar(modifier: Modifier = Modifier, onClk: (Color) -> Unit, savePicture: () -> Unit) {
+fun ColorBar(
+    modifier: Modifier = Modifier,
+    onClk: (Color) -> Unit,
+    savePicture: () -> Unit,
+    openDialog: () -> Unit,
+) {
     val clrs = listOf(Color.Red, Color.Yellow, Color.Green, Color.Magenta, Color.Blue, Color.Black)
     val ctx = LocalContext.current
 
@@ -338,9 +418,10 @@ fun ColorBar(modifier: Modifier = Modifier, onClk: (Color) -> Unit, savePicture:
         ) {
             Icon(Icons.Default.Save, "Save")
         }
-        OutlinedIconButton({
-            ctx.startActivity(Intent(ctx, BitmActivity::class.java))
-        }) {
+        OutlinedIconButton(
+            // ctx.startActivity(Intent(ctx, BitmActivity::class.java))
+            openDialog
+        ) {
             Icon(Icons.AutoMirrored.Default.ArrowRight, "open in another activity")
         }
     }
@@ -349,5 +430,5 @@ fun ColorBar(modifier: Modifier = Modifier, onClk: (Color) -> Unit, savePicture:
 @Preview(showBackground = true)
 @Composable
 private fun ColorBarPreview() {
-    ColorBar(onClk = {}, savePicture = {})
+    ColorBar(onClk = {}, savePicture = {}, openDialog = {})
 }

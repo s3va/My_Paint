@@ -2,5 +2,4 @@
 <resources>
 
     <style name="Theme.MyPaint" parent="android:Theme.Material.Light.NoActionBar" />
-    <style name="Theme.BitMapMyPaint" parent="Theme.AppCompat.DayNight" />
 </resources>
