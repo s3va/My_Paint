@@ -12,8 +12,8 @@ android {
         applicationId = "one.two.three.mypaint"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "v0.0.3-alpha"
+        versionCode = 4
+        versionName = "v0.0.4-alpha"
         extensions.getByType(BasePluginExtension::class.java).archivesName.set("AndPaint-$versionName")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

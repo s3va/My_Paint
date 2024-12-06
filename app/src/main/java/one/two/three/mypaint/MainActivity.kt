@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Picture
 import android.graphics.Point
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -37,9 +38,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -87,7 +90,6 @@ class MainActivity : ComponentActivity() {
                 val picSaveFlow by vm.savePic.collectAsStateWithLifecycle()
                 val ctx = LocalContext.current
                 var showDialog by remember { mutableStateOf(false) }
-
 
                 val permi =
                     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { x ->
@@ -153,19 +155,19 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showDialog) {
-                    bitmap?.let {
-                        MyDialog(
-                            onDismiss = { showDialog = false },
-                            mBitmap = it,
-                        )
-                    }
+                    MyDialog(
+                        onDismiss = { showDialog = false },
+                        mBitmap = bitmap,
+                    )
                 }
             }
         }
     }
 }
 
-var bitmap: Bitmap? = null
+var bitmap: Bitmap? by mutableStateOf(null)
+var mUriToPic: Uri? by mutableStateOf(null)
+var myFileName: String? by mutableStateOf(null)
 var picture = Picture()
 
 @Composable
@@ -227,21 +229,20 @@ fun PaintScr(
             bitmap = btm
 
 //            bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
-
+            val mFileName = "Paint-" +
+                    LocalDateTime.now().format(
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
+                    )
+            myFileName= "$mFileName.png"
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-
                 val resolver: ContentResolver = ctx.contentResolver
                 val contentValues = ContentValues()
-                contentValues.put(
-                    MediaStore.MediaColumns.DISPLAY_NAME, "Paint-" +
-                            LocalDateTime.now().format(
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
-                            )
-                )
+                contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, mFileName)
                 contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/paint")
                 resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
                     ?.let { iUri ->
+                        mUriToPic = iUri
                         resolver.openOutputStream(iUri)?.use { fos ->
                             bitmap?.compress(Bitmap.CompressFormat.PNG, 100, fos)
                         }
@@ -256,11 +257,7 @@ fun PaintScr(
                         return@LaunchedEffect
                     }
                 }
-                val picFile = File(
-                    f,
-                    "Paint-" + LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss.SSS")) + ".png"
-                )
+                val picFile = File(f, "$mFileName.png")
                 Log.i(TAG, "PaintScr: $picFile")
                 picFile.outputStream().use { fos ->
                     bitmap?.compress(Bitmap.CompressFormat.PNG, 100, fos)
@@ -355,9 +352,9 @@ fun PaintScr(
                     }
                 }
             }
-            .pointerInput(true){
+            .pointerInput(true) {
                 detectTapGestures { offset: Offset ->
-                    pointsList.add(Pair(offset,lColor.value))
+                    pointsList.add(Pair(offset, lColor.value))
                 }
             }
     ) {
@@ -413,17 +410,23 @@ fun ColorBar(
             )
         }
         Spacer(Modifier.weight(1f))
+        HorizontalDivider()
+        Text(myFileName?:"")
+        HorizontalDivider()
         FilledIconButton(
-            onClick = savePicture,
+            onClick = {
+                savePicture()
+                openDialog()
+            },
         ) {
             Icon(Icons.Default.Save, "Save")
         }
-        OutlinedIconButton(
-            // ctx.startActivity(Intent(ctx, BitmActivity::class.java))
-            openDialog
-        ) {
-            Icon(Icons.AutoMirrored.Default.ArrowRight, "open in another activity")
-        }
+//        OutlinedIconButton(
+//            // ctx.startActivity(Intent(ctx, BitmActivity::class.java))
+//            openDialog
+//        ) {
+//            Icon(Icons.AutoMirrored.Default.ArrowRight, "open in another activity")
+//        }
     }
 }
 
