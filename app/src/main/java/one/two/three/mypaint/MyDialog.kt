@@ -6,9 +6,11 @@ import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,9 +45,11 @@ fun MyDialog(
                         Modifier.border(BorderStroke(1.dp, Color.Black))
                     )
                 }
-
+                Text(myFileName?:"")
+                HorizontalDivider()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     TextButton({
                         Log.i(TAG, "MyDialog: myFileName $myFileName")

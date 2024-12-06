@@ -410,9 +410,6 @@ fun ColorBar(
             )
         }
         Spacer(Modifier.weight(1f))
-        HorizontalDivider()
-        Text(myFileName?:"")
-        HorizontalDivider()
         FilledIconButton(
             onClick = {
                 savePicture()
